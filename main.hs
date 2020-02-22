@@ -1,12 +1,21 @@
 import Data.List.Split
 import Data.List
+import Data.Set as Set
 
-type Board = ([Position],[Position])
+type Board = (Set Position, Set Position)
 
 data Symbol = X | O deriving (Show,Eq)
-data Position = Zero | One | Two | Three | Four | Five | Six | Seven | Eight | Invalid deriving(Show,Eq,Enum)
+data Position = Zero | One | Two | Three | Four | Five | Six | Seven | Eight | Invalid deriving(Show,Eq,Enum, Ord )
 data Player = Player {name :: String, symbol :: Symbol} deriving (Show,Eq)
 data GameState = Setup | InPlay Player Player Board | HasWon Player | Drawn deriving(Show,Eq)
+
+diagonalComb = [[Zero,Four,Eight], [Two,Four,Six]]
+rowComb = chunksOf 3 [Zero .. Eight]
+columnComb = transpose rowComb
+winComb = Set.fromList (Prelude.map Set.fromList (rowComb ++ columnComb ++ diagonalComb))
+
+hasWon :: Set Position -> Bool
+hasWon moves = any ((flip Set.isSubsetOf) moves) winComb
 
 mapPosition :: String -> Position
 mapPosition charCh
@@ -15,22 +24,11 @@ mapPosition charCh
   where choices = [Zero .. Eight]
         choice = read charCh
 
-diagonalComb = [[Zero,Four,Eight], [Two,Four,Six]]
-rowComb = chunksOf 3 [Zero .. Eight]
-columnComb = transpose rowComb
-winComb = rowComb ++ columnComb ++ diagonalComb
-
-isPresent :: (Eq a) => [a] -> a -> Bool
-isPresent a b = b `elem` a
-
-hasWon :: [Position] -> Bool
-hasWon moves = any (all (isPresent moves)) winComb
-
 updateBoard :: Board -> Symbol -> Position -> Board
 updateBoard (xs, os) sm p
-  | sm == X = (p : xs, os)
-  | sm == O = (xs, p:os)
-  |otherwise = (xs, os)
+  | sm == X = (Set.insert p xs, os)
+  | sm == O = (xs, Set.insert p os)
+  | otherwise = (xs, os)
 
 playGame :: GameState -> IO String
 playGame (HasWon p) = return ((name p) ++ " has won")
@@ -53,7 +51,7 @@ startGame = do
   p1Name <- getLine
   putStrLn "Player 2 enter your name :"
   p2Name <- getLine
-  playGame $ InPlay (Player p1Name X) (Player p2Name O) ([],[])
+  playGame $ InPlay (Player p1Name X) (Player p2Name O) (Set.empty,Set.empty)
 
 main :: IO ()
 main = do 
